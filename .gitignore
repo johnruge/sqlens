@@ -17,3 +17,6 @@ target/
 
 # Env / secrets
 .env
+
+# Sakila download artifacts
+db/
