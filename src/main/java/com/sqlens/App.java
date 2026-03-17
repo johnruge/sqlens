@@ -2,6 +2,9 @@ package com.sqlens;
 
 import java.io.Console;
 import java.util.Scanner;
+
+import com.sqlens.database.DBConnection;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,7 +27,7 @@ public class App implements Runnable {
         char [] password = console.readPassword("password: ");
 
         try {
-            Connection conn = Database.getConnection(url, user, password);
+            Connection conn = DBConnection.getConnection(url, user, password);
 
             //REPL loop
             Scanner scanner = new Scanner(System.in);
@@ -45,10 +48,11 @@ public class App implements Runnable {
                 //-send to chat/gemini for analysis and suggestions
                 //-give an agent tools they can use (with limited access ofc) - future
                 Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery(input);
+                //TODO: fix potential sql injection
+                ResultSet rs = stmt.executeQuery("EXPLAIN " + input);
 
                 while (rs.next()) {
-                    System.out.println(rs.getString("first_name"));
+                    System.out.println(rs.getString("ID"));
                 }
 
                 //output the the analysis from LLM
