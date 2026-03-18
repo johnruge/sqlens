@@ -9,9 +9,7 @@ import com.sqlens.service.ExplainService;
 import com.sqlens.models.ExplainRes;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -43,17 +41,15 @@ public class App implements Runnable {
                     break;
                 } //TODO: add help logic later
 
-                //for now, I'll just print the sql output
-                //i will abstract this to the service layer in future commits
-                //handle_request()
-                //-will take the request and get all ANALYZE information
+                List<ExplainRes> list_res = ExplainService.getExplainRes(conn, input);
+                System.out.print(list_res.getFirst());
+
+                //TODO
                 //-get info about the tables
                 //-send to chat/gemini for analysis and suggestions
                 //-give an agent tools they can use (with limited access ofc) - future
 
-                List<ExplainRes> list_res = ExplainService.getExplainRes(conn, input);
-                System.out.print(list_res.getFirst());
-                //output the the analysis from LLM
+                //get the final suggestion from the agent
             }
             scanner.close();
             conn.close();
