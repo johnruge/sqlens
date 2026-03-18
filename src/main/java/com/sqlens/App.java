@@ -2,8 +2,11 @@ package com.sqlens;
 
 import java.io.Console;
 import java.util.Scanner;
+import java.util.List;
 
 import com.sqlens.database.DBConnection;
+import com.sqlens.service.ExplainService;
+import com.sqlens.models.ExplainRes;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -47,17 +50,13 @@ public class App implements Runnable {
                 //-get info about the tables
                 //-send to chat/gemini for analysis and suggestions
                 //-give an agent tools they can use (with limited access ofc) - future
-                Statement stmt = conn.createStatement();
-                //TODO: fix potential sql injection
-                ResultSet rs = stmt.executeQuery("EXPLAIN " + input);
 
-                while (rs.next()) {
-                    System.out.println(rs.getString("ID"));
-                }
-
+                List<ExplainRes> list_res = ExplainService.getExplainRes(conn, input);
+                System.out.print(list_res.getFirst());
                 //output the the analysis from LLM
             }
             scanner.close();
+            conn.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
