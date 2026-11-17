@@ -4,6 +4,7 @@ import com.sqlens.analysis.PlanAnalyzer;
 import com.sqlens.models.ExplainRes;
 import com.sqlens.services.InvalidQueryException;
 import com.sqlens.services.SQLService;
+import com.sqlens.services.SchemaService;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -56,6 +57,10 @@ public class Repl {
                     printHelp();
                     continue;
                 }
+                if (trimmed.startsWith("\\")) {
+                    metaCommand(trimmed.replaceAll(";$", "").trim());
+                    continue;
+                }
             }
 
             buffer.append(line).append('\n');
@@ -84,9 +89,33 @@ public class Repl {
         out.flush();
     }
 
+    private void metaCommand(String cmd) {
+        String[] parts = cmd.split("\\s+", 2);
+        try {
+            switch (parts[0]) {
+                case "\\tables", "\\t" -> out.print(TableFormatter.formatTableList(SchemaService.listTables(conn)));
+                case "\\d", "\\describe" -> {
+                    if (parts.length < 2) {
+                        out.println("usage: \\d <table>");
+                    } else {
+                        SchemaService.describe(conn, parts[1].replace("`", "")).ifPresentOrElse(
+                            t -> out.print(TableFormatter.formatTable(t)),
+                            () -> out.println("no such table in the current database"));
+                    }
+                }
+                default -> out.println("unknown command " + TableFormatter.cell(parts[0]) + " (type help)");
+            }
+        } catch (SQLException e) {
+            out.println(style.error("error: ") + e.getMessage());
+        }
+        out.flush();
+    }
+
     private void printHelp() {
         out.println("""
             Type a SELECT query ending with ';' to see its execution plan.
+              \\tables, \\t      list tables in the current database
+              \\d <table>        show columns and indexes of a table
               help, \\h, \\?     show this help
               exit, quit, \\q   leave sqlens (Ctrl-D also works)
               Ctrl-C           discard the query you are typing""");

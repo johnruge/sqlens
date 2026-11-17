@@ -1,6 +1,7 @@
 package com.sqlens.cli;
 
 import com.sqlens.models.ExplainRes;
+import com.sqlens.models.TableInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,31 @@ public final class TableFormatter {
                 r.keyLen(), r.ref(), str(r.rows()), str(r.filtered()), r.extra()));
         }
         return format(headers, rows);
+    }
+
+    public static String formatTableList(List<TableInfo> tables) {
+        List<List<String>> rows = new ArrayList<>();
+        for (TableInfo t : tables) {
+            rows.add(java.util.Arrays.asList(t.name(), t.engine(), str(t.rowEstimate())));
+        }
+        return format(List.of("table", "engine", "rows (estimate)"), rows);
+    }
+
+    public static String formatTable(TableInfo t) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(cell(t.name())).append(" (").append(cell(t.engine())).append(", ~")
+            .append(t.rowEstimate() == null ? "?" : t.rowEstimate()).append(" rows)\n");
+        List<List<String>> cols = new ArrayList<>();
+        for (TableInfo.Column c : t.columns()) {
+            cols.add(List.of(c.name(), c.type(), c.nullable() ? "YES" : "NO", c.key() == null ? "" : c.key()));
+        }
+        sb.append(format(List.of("column", "type", "null", "key"), cols));
+        List<List<String>> idx = new ArrayList<>();
+        for (TableInfo.Index i : t.indexes()) {
+            idx.add(List.of(i.name(), i.unique() ? "yes" : "no", String.join(", ", i.columns())));
+        }
+        sb.append(format(List.of("index", "unique", "columns"), idx));
+        return sb.toString();
     }
 
     private static String str(Object o) {
