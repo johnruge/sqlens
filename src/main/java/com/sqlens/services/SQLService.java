@@ -14,14 +14,21 @@ public final class SQLService {
 
     private SQLService() {}
 
+    /**
+     * Runs EXPLAIN on a user query.
+     * The query is validated first; it is concatenated (not bound as a parameter) only
+     * because placeholders cannot stand in for a whole statement.
+     *
+     * @throws InvalidQueryException if the query is not a single read-only SELECT
+     */
     public static List<ExplainRes> getExplainRes(Connection conn, String query)
     throws SQLException {
+        String safeQuery = QueryValidator.validate(query);
         List<ExplainRes> res = new ArrayList<>();
 
-        //TODO: validate query before building the EXPLAIN statement
         try (Statement stmt = conn.createStatement()) {
             stmt.setQueryTimeout(DBConnection.QUERY_TIMEOUT_SECONDS);
-            try (ResultSet rs = stmt.executeQuery("EXPLAIN " + query)) {
+            try (ResultSet rs = stmt.executeQuery("EXPLAIN " + safeQuery)) {
                 while (rs.next()) {
                     res.add(new ExplainRes(
                         rs.getObject("id", Integer.class),

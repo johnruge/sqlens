@@ -1,6 +1,7 @@
 package com.sqlens.cli;
 
 import com.sqlens.models.ExplainRes;
+import com.sqlens.services.InvalidQueryException;
 import com.sqlens.services.SQLService;
 
 import org.jline.reader.EndOfFileException;
@@ -67,21 +68,15 @@ public class Repl {
 
     private void explain(String sql) {
         try {
-            List<ExplainRes> plan = SQLService.getExplainRes(conn, stripTrailingSemicolon(sql));
+            List<ExplainRes> plan = SQLService.getExplainRes(conn, sql);
             out.print(TableFormatter.formatPlan(plan));
+        } catch (InvalidQueryException e) {
+            out.println("rejected: " + e.getMessage());
         } catch (SQLException e) {
             // Show the database's message (useful for typos) but never a stack trace.
             out.println("error: " + e.getMessage());
         }
         out.flush();
-    }
-
-    static String stripTrailingSemicolon(String sql) {
-        String s = sql.strip();
-        while (s.endsWith(";")) {
-            s = s.substring(0, s.length() - 1).strip();
-        }
-        return s;
     }
 
     private void printHelp() {
