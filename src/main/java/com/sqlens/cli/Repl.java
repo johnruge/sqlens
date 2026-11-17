@@ -1,8 +1,13 @@
 package com.sqlens.cli;
 
+import com.sqlens.analysis.Finding;
 import com.sqlens.analysis.PlanAnalyzer;
 import com.sqlens.models.ExplainRes;
+import com.sqlens.models.TableInfo;
 import com.sqlens.services.InvalidQueryException;
+import com.sqlens.services.LLMException;
+import com.sqlens.services.LLMService;
+import com.sqlens.services.PromptBuilder;
 import com.sqlens.services.SQLService;
 import com.sqlens.services.SchemaService;
 
@@ -22,16 +27,23 @@ public class Repl {
     private final LineReader reader;
     private final PrintWriter out;
     private final Style style;
+    private final LLMService llm;   // null when no API key is configured
+    private boolean aiEnabled;
 
-    public Repl(Connection conn, LineReader reader, PrintWriter out, Style style) {
+    public Repl(Connection conn, LineReader reader, PrintWriter out, Style style, LLMService llm) {
         this.conn = conn;
         this.reader = reader;
         this.out = out;
         this.style = style;
+        this.llm = llm;
+        this.aiEnabled = llm != null;
     }
 
     public void run() {
         out.println("Connected. Type 'help' for commands. End each query with ';'.");
+        out.println(llm == null
+            ? "AI suggestions are off (set GEMINI_API_KEY to enable them)."
+            : "AI suggestions are on (" + llm.model() + "). Type \\ai off to disable.");
         StringBuilder buffer = new StringBuilder();
         while (true) {
             String line;
@@ -79,7 +91,12 @@ public class Repl {
             List<ExplainRes> plan = SQLService.getExplainRes(conn, sql);
             out.print(TableFormatter.formatPlan(plan));
             out.println();
-            out.print(FindingsFormatter.format(PlanAnalyzer.analyze(plan), style));
+            List<Finding> findings = PlanAnalyzer.analyze(plan);
+            out.print(FindingsFormatter.format(findings, style));
+            if (aiEnabled) {
+                out.flush();
+                askLlm(sql, plan, findings);
+            }
         } catch (InvalidQueryException e) {
             out.println(style.error("rejected: ") + e.getMessage());
         } catch (SQLException e) {
@@ -87,6 +104,20 @@ public class Repl {
             out.println(style.error("error: ") + e.getMessage());
         }
         out.flush();
+    }
+
+    private void askLlm(String sql, List<ExplainRes> plan, List<Finding> findings) throws SQLException {
+        out.println();
+        out.println(style.dim("asking " + llm.model() + "..."));
+        out.flush();
+        List<TableInfo> tables = SchemaService.describePlanTables(conn, sql, plan);
+        try {
+            String advice = llm.suggest(PromptBuilder.build(sql, plan, tables, findings));
+            out.println(style.bold("AI suggestions") + style.dim(" (verify before applying)"));
+            out.println(advice);
+        } catch (LLMException e) {
+            out.println(style.error("AI suggestions unavailable: ") + e.getMessage());
+        }
     }
 
     private void metaCommand(String cmd) {
@@ -103,6 +134,19 @@ public class Repl {
                             () -> out.println("no such table in the current database"));
                     }
                 }
+                case "\\ai" -> {
+                    if (llm == null) {
+                        out.println("AI is not configured: set GEMINI_API_KEY and restart sqlens");
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("off")) {
+                        aiEnabled = false;
+                        out.println("AI suggestions off");
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("on")) {
+                        aiEnabled = true;
+                        out.println("AI suggestions on");
+                    } else {
+                        out.println("usage: \\ai on|off (currently " + (aiEnabled ? "on" : "off") + ")");
+                    }
+                }
                 default -> out.println("unknown command " + TableFormatter.cell(parts[0]) + " (type help)");
             }
         } catch (SQLException e) {
@@ -116,6 +160,7 @@ public class Repl {
             Type a SELECT query ending with ';' to see its execution plan.
               \\tables, \\t      list tables in the current database
               \\d <table>        show columns and indexes of a table
+              \\ai on|off        toggle AI suggestions (needs GEMINI_API_KEY)
               help, \\h, \\?     show this help
               exit, quit, \\q   leave sqlens (Ctrl-D also works)
               Ctrl-C           discard the query you are typing""");
