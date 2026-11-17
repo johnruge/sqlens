@@ -2,7 +2,7 @@ MVN = mvn
 JAR = target/sqlens-1.0-SNAPSHOT-jar-with-dependencies.jar
 MAIN_CLASS = com.sqlens.App
 
-include .env
+-include .env
 export
 
 .PHONY: build test clean run install db-up db-down db-logs db-cli
@@ -37,4 +37,4 @@ db-logs:
 	docker compose logs -f mysql
 
 db-cli:
-	docker compose exec mysql mysql -u $(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE)
+	MYSQL_PWD="$$MYSQL_PASSWORD" docker compose exec -e MYSQL_PWD mysql mysql -u $(MYSQL_USER) $(MYSQL_DATABASE)
