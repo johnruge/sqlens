@@ -10,6 +10,15 @@
   <packaging>jar</packaging>
 
   <name>sqlens</name>
+  <description>Explains MySQL query plans and suggests how to make queries faster.</description>
+  <url>https://github.com/johnruge/sqlens</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>

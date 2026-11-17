@@ -1,5 +1,7 @@
 # sqlens
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A command-line tool that looks at a MySQL query's execution plan and tells you, in
 plain words, why it is slow and what to do about it.
 
@@ -142,3 +144,13 @@ make verify     # unit + integration tests (Testcontainers starts MySQL; skipped
 
 A GitHub Actions workflow that runs `mvn verify` is included. It only runs when started
 by hand (`gh workflow run CI`), not on every push.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). To report
+a security problem privately, see [SECURITY.md](SECURITY.md).
+
+## License
+
+sqlens is released under the [MIT License](LICENSE). The Sakila sample database is not
+included; it is distributed separately by Oracle under its own license.
