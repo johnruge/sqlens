@@ -28,6 +28,13 @@ public final class DBConnection {
         props.setProperty("allowLoadLocalInfile", "false");
         props.setProperty("allowUrlInLocalInfile", "false");
         props.setProperty("autoDeserialize", "false");
+        // Pin the client charset: the validator reasons about Unicode text, so the bytes the
+        // server decodes must be the same text (no GBK-style multi-byte quote tricks).
+        props.setProperty("characterEncoding", "UTF-8");
+        // Never fetch the server's RSA key over an unencrypted link (allows a MITM to read the password).
+        props.setProperty("allowPublicKeyRetrieval", "false");
+        // Over a real network the password and queries must be encrypted.
+        props.setProperty("sslMode", config.isLoopback() ? "PREFERRED" : "REQUIRED");
 
         Connection conn = DriverManager.getConnection(config.jdbcUrl(), props);
         try {

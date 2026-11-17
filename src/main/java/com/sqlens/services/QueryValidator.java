@@ -43,10 +43,22 @@ public final class QueryValidator {
             throw new InvalidQueryException("query is too long (max " + MAX_QUERY_LENGTH + " characters)");
         }
 
-        // The server may or may not treat backslash as an escape (sql_mode NO_BACKSLASH_ESCAPES).
-        // Scan both ways so input that is "one statement" under only one reading is rejected.
-        codeOnly(sql, false);
-        String code = codeOnly(sql, true);   // literals and comments blanked out
+        for (int i = 0; i < sql.length(); i++) {
+            char c = sql.charAt(i);
+            if ((c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c == 0x7f) {
+                throw new InvalidQueryException("control characters are not allowed (found U+"
+                    + String.format("%04X", (int) c) + " at position " + i + ")");
+            }
+        }
+
+        // Whether backslash escapes inside '..' and ".." depends on the server's sql_mode
+        // (NO_BACKSLASH_ESCAPES, and ANSI_QUOTES makes ".." an identifier with no escapes).
+        // Scan under every combination so input that is "one statement" under only some
+        // readings is rejected.
+        codeOnly(sql, false, false);
+        codeOnly(sql, false, true);
+        codeOnly(sql, true, false);
+        String code = codeOnly(sql, true, true);   // literals and comments blanked out
         String upper = code.toUpperCase(Locale.ROOT).strip();
         if (upper.isEmpty()) {
             throw new InvalidQueryException("query contains only comments");
@@ -72,7 +84,7 @@ public final class QueryValidator {
      * spaces. Rejects unterminated quotes/comments, MySQL executable comments, and any ';'
      * that is followed by more code.
      */
-    static String codeOnly(String sql, boolean backslashEscapes) {
+    static String codeOnly(String sql, boolean singleQuoteEscapes, boolean doubleQuoteEscapes) {
         StringBuilder code = new StringBuilder(sql.length());
         int n = sql.length();
         int i = 0;
@@ -83,7 +95,7 @@ public final class QueryValidator {
             char next = i + 1 < n ? sql.charAt(i + 1) : '\0';
 
             if (c == '\'' || c == '"' || c == '`') {
-                int end = skipQuoted(sql, i, c, backslashEscapes);
+                int end = skipQuoted(sql, i, c, c == '\'' ? singleQuoteEscapes : c == '"' && doubleQuoteEscapes);
                 if (sawTerminator) {
                     throw new InvalidQueryException("only one statement is allowed");
                 }
@@ -91,7 +103,10 @@ public final class QueryValidator {
                 i = end;
                 continue;
             }
-            if (c == '#' || (c == '-' && next == '-' && (i + 2 >= n || Character.isWhitespace(sql.charAt(i + 2))))) {
+            // MySQL only starts a "--" comment when an ASCII space/tab/newline follows. Other
+            // control characters were rejected above; anything else (e.g. U+2028) keeps "--"
+            // as two minus signs, exactly as the server reads it.
+            if (c == '#' || (c == '-' && next == '-' && (i + 2 >= n || isSqlSpace(sql.charAt(i + 2))))) {
                 int end = sql.indexOf('\n', i);
                 end = end < 0 ? n : end;
                 code.append(" ".repeat(end - i));
@@ -99,8 +114,8 @@ public final class QueryValidator {
                 continue;
             }
             if (c == '/' && next == '*') {
-                if (i + 2 < n && sql.charAt(i + 2) == '!') {
-                    throw new InvalidQueryException("MySQL executable comments (/*! ... */) are not allowed");
+                if (sql.startsWith("/*!", i) || sql.regionMatches(true, i, "/*M!", 0, 4)) {
+                    throw new InvalidQueryException("executable comments (/*! ... */, /*M! ... */) are not allowed");
                 }
                 int end = sql.indexOf("*/", i + 2);
                 if (end < 0) {
@@ -116,7 +131,7 @@ public final class QueryValidator {
                 i++;
                 continue;
             }
-            if (sawTerminator && !Character.isWhitespace(c)) {
+            if (sawTerminator && !isSqlSpace(c)) {
                 throw new InvalidQueryException("only one statement is allowed");
             }
             code.append(c);
@@ -125,13 +140,17 @@ public final class QueryValidator {
         return code.toString();
     }
 
+    private static boolean isSqlSpace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    }
+
     /** @return index just past the closing quote */
     private static int skipQuoted(String sql, int start, char quote, boolean backslashEscapes) {
         int i = start + 1;
         int n = sql.length();
         while (i < n) {
             char c = sql.charAt(i);
-            if (backslashEscapes && c == '\\' && quote != '`') {
+            if (backslashEscapes && c == '\\') {
                 i += 2;            // backslash escape inside string literals
                 continue;
             }

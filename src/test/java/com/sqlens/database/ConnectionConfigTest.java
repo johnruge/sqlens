@@ -21,6 +21,15 @@ class ConnectionConfigTest {
     }
 
     @Test
+    void detectsLoopbackHosts() {
+        assertTrue(new ConnectionConfig("localhost", 3306, "db").isLoopback());
+        assertTrue(new ConnectionConfig("127.0.0.1", 3306, "db").isLoopback());
+        assertFalse(new ConnectionConfig("db.example.com", 3306, "db").isLoopback());
+        assertFalse(new ConnectionConfig("10.0.0.5", 3306, "db").isLoopback());
+        assertFalse(new ConnectionConfig("127.evil.com", 3306, "db").isLoopback());
+    }
+
+    @Test
     void rejectsUrlParameters() {
         assertThrows(IllegalArgumentException.class,
             () -> ConnectionConfig.fromUrl("jdbc:mysql://localhost/sakila?allowLoadLocalInfile=true"));

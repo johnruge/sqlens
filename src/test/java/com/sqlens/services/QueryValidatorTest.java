@@ -25,7 +25,10 @@ class QueryValidatorTest {
         "SELECT /*+ NO_INDEX(film) */ * FROM film",
         "/* leading */ SELECT 1",
         "SELECT * FROM film FOR UPDATE",
-        "SELECT * FROM film;\n -- just a comment after"
+        "SELECT * FROM film;\n -- just a comment after",
+        "SELECT *\r\nFROM film\tWHERE 1 --\tcomment",
+        "SELECT 1 --",
+        "SELECT 'café', 'naïve' FROM film"
     })
     void acceptsReadOnlySelects(String sql) {
         assertDoesNotThrow(() -> QueryValidator.validate(sql));
@@ -54,6 +57,17 @@ class QueryValidatorTest {
         "SELECT 1 /* */; DROP TABLE film",
         // one literal with backslash escapes, two statements without: rejected either way
         "SELECT 'a\\'; DROP TABLE film; -- '",
+        // parser differentials found by probing: MySQL would read these as two statements
+        "SELECT 1 --\u2028; DROP TABLE film",
+        "SELECT 1 --\u0001 '\n; DROP TABLE film; -- '",
+        "SELECT 1 --\u000b '\n; DROP TABLE film; -- '",
+        "SELECT /*M! 1; DROP TABLE film */ 1",
+        "SELECT /*m! 1 */ 1",
+        "SELECT 1\u0000; DROP TABLE film",
+        "SELECT 1 \u007f",
+        // ANSI_QUOTES with backslash escapes in '..' only
+        "SELECT \"x\\\" , 'y\\'' ; DROP TABLE film; -- \" FROM t",
+        "SELECT 1;\u2028",
     })
     void rejectsEverythingElse(String sql) {
         assertThrows(InvalidQueryException.class, () -> QueryValidator.validate(sql), sql);

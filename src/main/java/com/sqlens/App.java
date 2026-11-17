@@ -2,7 +2,9 @@ package com.sqlens;
 
 import com.sqlens.analysis.Finding;
 import com.sqlens.analysis.Severity;
+import com.sqlens.cli.HistoryFile;
 import com.sqlens.cli.QueryRunner;
+import com.sqlens.cli.Readers;
 import com.sqlens.cli.Repl;
 import com.sqlens.cli.Style;
 import com.sqlens.database.ConnectionConfig;
@@ -13,7 +15,6 @@ import com.sqlens.util.TerminalText;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
@@ -23,7 +24,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -108,7 +108,7 @@ public class App implements Callable<Integer> {
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
             PrintWriter out = terminal.writer();
             // Credentials are read with a reader that has no history, so they are never saved.
-            LineReader credentialReader = LineReaderBuilder.builder().terminal(terminal).build();
+            LineReader credentialReader = Readers.create(terminal, null);
             String password = System.getenv("SQLENS_PASSWORD");
             try {
                 if (user == null || user.isBlank()) {
@@ -181,21 +181,8 @@ public class App implements Callable<Integer> {
 
     /** REPL reader with history in ~/.sqlens_history, readable only by the current user. */
     private static LineReader historyReader(Terminal terminal) {
-        LineReaderBuilder builder = LineReaderBuilder.builder().terminal(terminal);
         String home = System.getProperty("user.home");
-        if (home != null) {
-            Path history = Path.of(home, ".sqlens_history");
-            try {
-                if (Files.notExists(history)) {
-                    Files.createFile(history);
-                }
-                Files.setPosixFilePermissions(history, PosixFilePermissions.fromString("rw-------"));
-                builder.variable(LineReader.HISTORY_FILE, history);
-            } catch (IOException | UnsupportedOperationException e) {
-                // no history if the file cannot be secured
-            }
-        }
-        return builder.build();
+        return Readers.create(terminal, home == null ? null : HistoryFile.secure(Path.of(home, ".sqlens_history")));
     }
 
     public static void main(String[] args) {

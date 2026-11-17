@@ -38,6 +38,11 @@ public record ConnectionConfig(String host, int port, String database) {
         return new ConnectionConfig(m.group(1), port, m.group(3));
     }
 
+    /** True for this machine only, where traffic never crosses a network. */
+    public boolean isLoopback() {
+        return host.equalsIgnoreCase("localhost") || host.matches("127(\\.\\d{1,3}){3}");
+    }
+
     public String jdbcUrl() {
         return "jdbc:mysql://" + host + ":" + port + "/" + database;
     }

@@ -28,6 +28,7 @@ public final class SQLService {
 
         try (Statement stmt = conn.createStatement()) {
             stmt.setQueryTimeout(DBConnection.QUERY_TIMEOUT_SECONDS);
+            stmt.setEscapeProcessing(false);   // send exactly what was validated, no {fn ...} rewriting
             try (ResultSet rs = stmt.executeQuery("EXPLAIN " + safeQuery)) {
                 while (rs.next()) {
                     res.add(new ExplainRes(
@@ -54,6 +55,7 @@ public final class SQLService {
         String safeQuery = QueryValidator.validate(query);
         try (Statement stmt = conn.createStatement()) {
             stmt.setQueryTimeout(DBConnection.QUERY_TIMEOUT_SECONDS);
+            stmt.setEscapeProcessing(false);
             try (ResultSet rs = stmt.executeQuery("EXPLAIN FORMAT=TREE " + safeQuery)) {
                 StringBuilder sb = new StringBuilder();
                 while (rs.next()) {
