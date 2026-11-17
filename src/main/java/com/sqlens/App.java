@@ -9,6 +9,7 @@ import com.sqlens.database.ConnectionConfig;
 import com.sqlens.database.DBConnection;
 import com.sqlens.services.LLMService;
 import com.sqlens.services.QuerySplitter;
+import com.sqlens.util.TerminalText;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -133,7 +134,7 @@ public class App implements Callable<Integer> {
                 new Repl(conn, historyReader(terminal), out, style, llm).run();
             } catch (SQLException e) {
                 out.println(style.error("could not connect to ") + config.host() + ":" + config.port()
-                    + "/" + config.database() + ": " + e.getMessage());
+                    + "/" + config.database() + ": " + TerminalText.clean(e.getMessage()));
                 out.flush();
                 return 1;
             }

@@ -2,6 +2,7 @@ package com.sqlens.cli;
 
 import com.sqlens.services.LLMService;
 import com.sqlens.services.SchemaService;
+import com.sqlens.util.TerminalText;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -117,7 +118,7 @@ public class Repl {
                 default -> out.println("unknown command " + TableFormatter.cell(parts[0]) + " (type help)");
             }
         } catch (SQLException e) {
-            out.println(style.error("error: ") + e.getMessage());
+            out.println(style.error("error: ") + TerminalText.clean(e.getMessage()));
         }
         out.flush();
     }

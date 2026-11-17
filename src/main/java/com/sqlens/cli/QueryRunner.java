@@ -10,6 +10,7 @@ import com.sqlens.services.LLMService;
 import com.sqlens.services.PromptBuilder;
 import com.sqlens.services.SQLService;
 import com.sqlens.services.SchemaService;
+import com.sqlens.util.TerminalText;
 
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -46,10 +47,10 @@ public class QueryRunner {
             }
             return Optional.of(findings);
         } catch (InvalidQueryException e) {
-            out.println(style.error("rejected: ") + e.getMessage());
+            out.println(style.error("rejected: ") + TerminalText.clean(e.getMessage()));
         } catch (SQLException e) {
             // Show the database's message (useful for typos) but never a stack trace.
-            out.println(style.error("error: ") + e.getMessage());
+            out.println(style.error("error: ") + TerminalText.clean(e.getMessage()));
         } finally {
             out.flush();
         }
@@ -58,11 +59,11 @@ public class QueryRunner {
 
     public void explainTree(String sql) {
         try {
-            out.print(SQLService.getExplainTree(conn, sql));
+            out.print(TerminalText.clean(SQLService.getExplainTree(conn, sql)));
         } catch (InvalidQueryException e) {
-            out.println(style.error("rejected: ") + e.getMessage());
+            out.println(style.error("rejected: ") + TerminalText.clean(e.getMessage()));
         } catch (SQLException e) {
-            out.println(style.error("error: ") + e.getMessage());
+            out.println(style.error("error: ") + TerminalText.clean(e.getMessage()));
         }
         out.flush();
     }
@@ -77,7 +78,7 @@ public class QueryRunner {
             out.println(style.bold("AI suggestions") + style.dim(" (verify before applying)"));
             out.println(advice);
         } catch (LLMException e) {
-            out.println(style.error("AI suggestions unavailable: ") + e.getMessage());
+            out.println(style.error("AI suggestions unavailable: ") + TerminalText.clean(e.getMessage()));
         }
     }
 }

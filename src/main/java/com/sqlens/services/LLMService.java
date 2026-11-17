@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import com.sqlens.util.TerminalText;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -122,11 +124,7 @@ public class LLMService {
 
     /** Strips terminal escape/control characters from model output and caps its length. */
     static String sanitize(String text) {
-        String clean = text
-            .replaceAll("\u001b\\][^\u0007\u001b]*(\u0007|\u001b\\\\)?", "")   // OSC sequences
-            .replaceAll("\u001b\\[[0-9;?]*[ -/]*[@-~]", "")                    // CSI sequences (colours, cursor)
-            .replaceAll("[\\p{Cntrl}&&[^\\n\\t]]", "")                          // any other control char
-            .strip();
+        String clean = TerminalText.clean(text).strip();
         return clean.length() > MAX_RESPONSE_CHARS ? clean.substring(0, MAX_RESPONSE_CHARS) + "\n[truncated]" : clean;
     }
 }

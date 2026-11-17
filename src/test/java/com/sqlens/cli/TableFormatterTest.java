@@ -29,6 +29,8 @@ class TableFormatterTest {
     void truncatesLongCellsAndStripsControlChars() {
         String longValue = "x".repeat(200);
         assertEquals(TableFormatter.MAX_CELL_WIDTH, TableFormatter.cell(longValue).length());
-        assertEquals("a b", TableFormatter.cell("a\u001bb"));
+        assertEquals("ab", TableFormatter.cell("a\u001bb"));
+        assertEquals("a b", TableFormatter.cell("a\nb"));
+        assertEquals("ab", TableFormatter.cell("a\u001b[31mb"));
     }
 }

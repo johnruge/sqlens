@@ -2,6 +2,7 @@ package com.sqlens.cli;
 
 import com.sqlens.models.ExplainRes;
 import com.sqlens.models.TableInfo;
+import com.sqlens.util.TerminalText;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,7 +87,7 @@ public final class TableFormatter {
         if (v == null) {
             return "NULL";
         }
-        String s = v.replaceAll("\\p{Cntrl}", " ");
+        String s = TerminalText.clean(v).replaceAll("[\\n\\t]", " ");
         return s.length() > MAX_CELL_WIDTH ? s.substring(0, MAX_CELL_WIDTH - 3) + "..." : s;
     }
 

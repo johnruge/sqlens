@@ -28,6 +28,14 @@ class FindingsFormatterTest {
     }
 
     @Test
+    void stripsEscapesFromDatabaseSuppliedText() {
+        String out = FindingsFormatter.format(List.of(new Finding(Severity.HIGH, "t\u001b[2J",
+            "index idx\u001b]0;pwn\u0007 ignored", "fix")), new Style(false));
+        assertFalse(out.contains("\u001b"));
+        assertFalse(out.contains("\u0007"));
+    }
+
+    @Test
     void emptyFindings() {
         assertTrue(FindingsFormatter.format(List.of(), new Style(false)).startsWith("No problems found"));
     }

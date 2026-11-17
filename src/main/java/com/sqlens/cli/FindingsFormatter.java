@@ -1,6 +1,7 @@
 package com.sqlens.cli;
 
 import com.sqlens.analysis.Finding;
+import com.sqlens.util.TerminalText;
 
 import java.util.List;
 
@@ -18,8 +19,8 @@ public final class FindingsFormatter {
             if (f.table() != null) {
                 sb.append('[').append(TableFormatter.cell(f.table())).append("] ");
             }
-            sb.append(f.problem()).append('\n');
-            sb.append("         ").append(style.dim("-> " + f.suggestion())).append('\n');
+            sb.append(TerminalText.clean(f.problem())).append('\n');
+            sb.append("         ").append(style.dim("-> " + TerminalText.clean(f.suggestion()))).append('\n');
         }
         return sb.toString();
     }
