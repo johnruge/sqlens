@@ -1,9 +1,8 @@
 name: CI
 
+# Manual only: start it from the Actions tab or with `gh workflow run CI`.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 # Least privilege: the workflow only needs to read the repository.
 permissions:

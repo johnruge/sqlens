@@ -140,4 +140,5 @@ make test       # unit tests
 make verify     # unit + integration tests (Testcontainers starts MySQL; skipped without Docker)
 ```
 
-CI (GitHub Actions) runs `mvn verify` on every push and pull request.
+A GitHub Actions workflow that runs `mvn verify` is included. It only runs when started
+by hand (`gh workflow run CI`), not on every push.
