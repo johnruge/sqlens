@@ -31,10 +31,14 @@ class SQLServiceIT extends MySqlTestBase {
     }
 
     @Test
-    void handlesJoinsAndNullIds() throws SQLException {
+    void parsesNullColumnsOfUnionResult() throws SQLException {
         List<ExplainRes> plan = SQLService.getExplainRes(conn,
             "SELECT title FROM film UNION SELECT last_name FROM actor");
-        assertTrue(plan.stream().anyMatch(r -> r.id() == null), "UNION RESULT row has NULL id");
+        ExplainRes union = plan.stream().filter(r -> "UNION RESULT".equals(r.selectType())).findFirst().orElseThrow();
+        assertEquals("<union1,2>", union.table());
+        assertNull(union.rows(), "rows is NULL for the temporary union table");
+        assertNull(union.filtered());
+        assertNull(union.keyLen());
     }
 
     @Test

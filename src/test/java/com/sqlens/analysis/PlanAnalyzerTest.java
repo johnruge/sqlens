@@ -21,7 +21,7 @@ class PlanAnalyzerTest {
     @Test
     void largeFullScanWithoutIndexIsHigh() {
         var f = PlanAnalyzer.analyze(List.of(row("SIMPLE", "film", "ALL", null, null, 50_000, 10, "Using where")));
-        assertTrue(has(f, Severity.HIGH, "no index matches"));
+        assertTrue(has(f, Severity.HIGH, "no usable index"));
         assertTrue(has(f, Severity.MEDIUM, "keeps only 10.0%"));
     }
 
@@ -82,6 +82,14 @@ class PlanAnalyzerTest {
     void coveringIndexScanIsInfoNotWarning() {
         var f = PlanAnalyzer.analyze(List.of(row("SIMPLE", "film", "index", null, "idx_title", 1000, 100, "Using index")));
         assertEquals(Severity.INFO, f.get(0).severity());
+    }
+
+    @Test
+    void internalTempTablesGetNoScanFindings() {
+        var f = PlanAnalyzer.analyze(List.of(new ExplainRes(3, "UNION RESULT", "<union1,2>", "ALL", null, null,
+            null, null, null, null, "Using temporary")));
+        assertEquals(1, f.size(), f.toString());
+        assertTrue(f.get(0).problem().contains("temporary table"));
     }
 
     @Test

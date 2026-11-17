@@ -16,8 +16,8 @@ sqlens> SELECT * FROM film f JOIN film_actor fa ON fa.film_id = f.film_id
 +----+-------------+-------+------+----------------+----------------+---------+-----------+------+----------+-----------------------------+
 
 Findings
-  HIGH   [f] Full table scan of ~1000 rows even though index(es) PRIMARY could be used.
-         -> ...rewrite the condition so the indexed column stands alone...
+  HIGH   [f] Full table scan of ~1000 rows: MySQL found no usable index for the WHERE / JOIN conditions.
+         -> Add an index on the columns this table is filtered or joined on...
   MEDIUM [f] Rows have to be sorted after reading (filesort).
          -> Add an index whose columns match the ORDER BY...
 ```
@@ -140,6 +140,14 @@ table schemas are sent to Google. Use `--no-ai` or `\ai off` for sensitive queri
 ```bash
 make test       # unit tests
 make verify     # unit + integration tests (Testcontainers starts MySQL; skipped without Docker)
+```
+
+Without Docker, the integration tests can use any MySQL 8.0+ server you already have.
+Give a user `ALL` on a `sqlens_test` schema only (it is dropped and recreated on every
+run), then:
+
+```bash
+SQLENS_IT_HOST=127.0.0.1 SQLENS_IT_PORT=3306 SQLENS_IT_USER=sqlens_it SQLENS_IT_PASSWORD=... make verify
 ```
 
 A GitHub Actions workflow that runs `mvn verify` is included. It only runs when started

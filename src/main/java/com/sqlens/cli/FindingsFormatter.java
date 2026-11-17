@@ -11,7 +11,7 @@ public final class FindingsFormatter {
 
     public static String format(List<Finding> findings, Style style) {
         if (findings.isEmpty()) {
-            return "No problems found: every table is read through an index.\n";
+            return "No problems found.\n";
         }
         StringBuilder sb = new StringBuilder(style.bold("Findings") + "\n");
         for (Finding f : findings) {

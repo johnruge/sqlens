@@ -46,7 +46,13 @@ public final class PlanAnalyzer {
                 continue;
             }
 
-            if (type.equals("all")) {
+            // <union1,2>, <derived2>, <subquery3> are MySQL's own temporary tables: there is
+            // no index to add, so only the Extra-based rules below apply to them.
+            boolean internalTable = table != null && table.startsWith("<");
+
+            if (internalTable) {
+                // fall through to the Extra / select_type checks
+            } else if (type.equals("all")) {
                 if (rows < SMALL_TABLE_ROWS) {
                     findings.add(new Finding(Severity.INFO, table,
                         "Full table scan, but only ~" + rows + " rows, so this is cheap.",
@@ -60,8 +66,11 @@ public final class PlanAnalyzer {
                             + "column stands alone (e.g. col >= '2024-01-01' instead of YEAR(col) = 2024)."));
                 } else {
                     findings.add(new Finding(Severity.HIGH, table,
-                        "Full table scan of ~" + rows + " rows: no index matches the WHERE / JOIN conditions.",
-                        "Add an index on the columns this table is filtered or joined on."));
+                        "Full table scan of ~" + rows + " rows: MySQL found no usable index for the WHERE / JOIN conditions.",
+                        "Add an index on the columns this table is filtered or joined on. If one already exists, "
+                            + "the column is probably wrapped in a function (YEAR(col), LOWER(col)) or compared with "
+                            + "a different type: compare the bare column instead, e.g. "
+                            + "col >= '2005-01-01' AND col < '2006-01-01' rather than YEAR(col) = 2005."));
                 }
             } else if (type.equals("index") && !extra.contains("using index")) {
                 findings.add(new Finding(Severity.MEDIUM, table,
