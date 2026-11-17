@@ -1,5 +1,6 @@
 package com.sqlens.services;
 
+import com.sqlens.database.DBConnection;
 import com.sqlens.models.ExplainRes;
 
 import java.sql.Connection;
@@ -9,36 +10,35 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SQLService {
+public final class SQLService {
+
+    private SQLService() {}
+
     public static List<ExplainRes> getExplainRes(Connection conn, String query)
     throws SQLException {
-        List<ExplainRes> res = new ArrayList<ExplainRes>();
+        List<ExplainRes> res = new ArrayList<>();
 
-        Statement stmt = conn.createStatement();
-
-        //TODO: fix potential sql injection //statement vs prepared statement
-        //parse to avoid multi sql excecution
-        //warn while using analyze, functions,??
-        ResultSet rs = stmt.executeQuery("EXPLAIN " + query);
-
-        while (rs.next()) {
-            int id = rs.getInt("id");
-            String select_type = rs.getString("select_type");
-            String table = rs.getString("table");
-            String type = rs.getString("type");
-            String possible_keys = rs.getString("possible_keys");
-            String key = rs.getString("key");
-            int key_len = rs.getInt("key_len");
-            String ref = rs.getString("ref");
-            long rows = rs.getLong("rows");
-            double filtered = rs.getDouble("filtered");
-            String extra = rs.getString("extra");
-
-            res.add(new ExplainRes(id, select_type, table, type, possible_keys,
-                key, key_len, ref, rows, filtered, extra
-            ));
+        //TODO: validate query before building the EXPLAIN statement
+        try (Statement stmt = conn.createStatement()) {
+            stmt.setQueryTimeout(DBConnection.QUERY_TIMEOUT_SECONDS);
+            try (ResultSet rs = stmt.executeQuery("EXPLAIN " + query)) {
+                while (rs.next()) {
+                    res.add(new ExplainRes(
+                        rs.getObject("id", Integer.class),
+                        rs.getString("select_type"),
+                        rs.getString("table"),
+                        rs.getString("type"),
+                        rs.getString("possible_keys"),
+                        rs.getString("key"),
+                        rs.getString("key_len"),
+                        rs.getString("ref"),
+                        rs.getObject("rows", Long.class),
+                        rs.getObject("filtered", Double.class),
+                        rs.getString("Extra")
+                    ));
+                }
+            }
         }
         return res;
     }
-    // TODO add other services like tables info and so on
 }

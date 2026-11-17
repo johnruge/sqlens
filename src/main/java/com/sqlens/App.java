@@ -1,63 +1,89 @@
 package com.sqlens;
 
-import java.io.Console;
-import java.util.Scanner;
-import java.util.List;
-
+import com.sqlens.cli.Repl;
+import com.sqlens.database.ConnectionConfig;
 import com.sqlens.database.DBConnection;
-import com.sqlens.models.ExplainRes;
-import com.sqlens.services.SQLService;
 
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.concurrent.Callable;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-@Command(name = "shell", description = "initiates the sqlens shell")
-public class App implements Runnable {
+@Command(name = "sqlens", mixinStandardHelpOptions = true, version = "sqlens 1.0",
+    description = "Explains MySQL query plans and suggests how to make queries faster.")
+public class App implements Callable<Integer> {
 
-    @Option(names = {"--url"}, description = "database url")
+    @Option(names = "--url", description = "JDBC URL, jdbc:mysql://host[:port]/database (overrides host/port/database)")
     private String url;
 
-    public void run() {
-        // get authentication info, and make connection
-        Console console = System.console();
-        String user = console.readLine("user: ");
-        char [] password = console.readPassword("password: ");
+    @Option(names = {"-H", "--host"}, defaultValue = "${env:MYSQL_HOST:-127.0.0.1}",
+        description = "database host (default: ${DEFAULT-VALUE}, env MYSQL_HOST)")
+    private String host;
 
+    @Option(names = {"-P", "--port"}, defaultValue = "${env:MYSQL_PORT:-3306}",
+        description = "database port (default: ${DEFAULT-VALUE}, env MYSQL_PORT)")
+    private int port;
+
+    @Option(names = {"-d", "--database"}, defaultValue = "${env:MYSQL_DATABASE:-sakila}",
+        description = "database name (default: ${DEFAULT-VALUE}, env MYSQL_DATABASE)")
+    private String database;
+
+    @Option(names = {"-u", "--user"}, defaultValue = "${env:SQLENS_USER}",
+        description = "database user (env SQLENS_USER; prompted if missing)")
+    private String user;
+
+    @Override
+    public Integer call() throws IOException {
+        ConnectionConfig config;
         try {
-            Connection conn = DBConnection.getConnection(url, user, password);
-
-            //REPL loop
-            Scanner scanner = new Scanner(System.in);
-            while (true) {
-                System.out.print("sqlens> ");
-
-                String input = scanner.nextLine();
-
-                if (input.equals("exit")) {
-                    break;
-                } //TODO: add help logic later
-
-                List<ExplainRes> list_res = SQLService.getExplainRes(conn, input);
-
-                //TODO
-                //-get info about the tables
-                //-send to chat/gemini for analysis and suggestions
-                //-give an agent tools they can use (with limited access ofc) - future
-
-                //get the final suggestion from the agent
-            }
-            scanner.close();
-            conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
+            config = url != null ? ConnectionConfig.fromUrl(url) : new ConnectionConfig(host, port, database);
+        } catch (IllegalArgumentException e) {
+            System.err.println("error: " + e.getMessage());
+            return 2;
         }
+
+        try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
+            LineReader reader = LineReaderBuilder.builder().terminal(terminal).build();
+            PrintWriter out = terminal.writer();
+
+            String password = System.getenv("SQLENS_PASSWORD");
+            try {
+                if (user == null || user.isBlank()) {
+                    user = reader.readLine("user: ").trim();
+                }
+                if (password == null) {
+                    password = reader.readLine("Password (hidden): ", '*');
+                }
+            } catch (UserInterruptException | EndOfFileException e) {
+                return 130;
+            }
+
+            try (Connection conn = DBConnection.getConnection(config, user, password)) {
+                password = null; // drop our reference as soon as we are connected
+                new Repl(conn, reader, out).run();
+            } catch (SQLException e) {
+                out.println("could not connect to " + config.host() + ":" + config.port()
+                    + "/" + config.database() + ": " + e.getMessage());
+                out.flush();
+                return 1;
+            }
+        }
+        return 0;
     }
 
-    public static void main( String[] args ) {
-        new CommandLine(new App()).execute(args);
+    public static void main(String[] args) {
+        System.exit(new CommandLine(new App()).execute(args));
     }
 }
