@@ -48,4 +48,19 @@ public final class SQLService {
         }
         return res;
     }
+
+    /** EXPLAIN FORMAT=TREE (MySQL 8.0.16+): shows join order and estimated cost per step. */
+    public static String getExplainTree(Connection conn, String query) throws SQLException {
+        String safeQuery = QueryValidator.validate(query);
+        try (Statement stmt = conn.createStatement()) {
+            stmt.setQueryTimeout(DBConnection.QUERY_TIMEOUT_SECONDS);
+            try (ResultSet rs = stmt.executeQuery("EXPLAIN FORMAT=TREE " + safeQuery)) {
+                StringBuilder sb = new StringBuilder();
+                while (rs.next()) {
+                    sb.append(rs.getString(1)).append('\n');
+                }
+                return sb.toString();
+            }
+        }
+    }
 }

@@ -1,14 +1,6 @@
 package com.sqlens.cli;
 
-import com.sqlens.analysis.Finding;
-import com.sqlens.analysis.PlanAnalyzer;
-import com.sqlens.models.ExplainRes;
-import com.sqlens.models.TableInfo;
-import com.sqlens.services.InvalidQueryException;
-import com.sqlens.services.LLMException;
 import com.sqlens.services.LLMService;
-import com.sqlens.services.PromptBuilder;
-import com.sqlens.services.SQLService;
 import com.sqlens.services.SchemaService;
 
 import org.jline.reader.EndOfFileException;
@@ -18,7 +10,7 @@ import org.jline.reader.UserInterruptException;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.List;
+import java.util.Locale;
 
 /** Interactive read-eval-print loop. Statements end with ';' and may span several lines. */
 public class Repl {
@@ -28,6 +20,7 @@ public class Repl {
     private final PrintWriter out;
     private final Style style;
     private final LLMService llm;   // null when no API key is configured
+    private final QueryRunner runner;
     private boolean aiEnabled;
 
     public Repl(Connection conn, LineReader reader, PrintWriter out, Style style, LLMService llm) {
@@ -36,6 +29,7 @@ public class Repl {
         this.out = out;
         this.style = style;
         this.llm = llm;
+        this.runner = new QueryRunner(conn, out, style, llm);
         this.aiEnabled = llm != null;
     }
 
@@ -61,7 +55,7 @@ public class Repl {
                 if (trimmed.isEmpty()) {
                     continue;
                 }
-                String word = trimmed.toLowerCase().replaceAll(";$", "");
+                String word = trimmed.toLowerCase(Locale.ROOT).replaceAll(";$", "");
                 if (word.equals("exit") || word.equals("quit") || word.equals("\\q")) {
                     break;
                 }
@@ -79,51 +73,17 @@ public class Repl {
             if (trimmed.endsWith(";")) {
                 String sql = buffer.toString();
                 buffer.setLength(0);
-                explain(sql);
+                runner.explain(sql, aiEnabled);
             }
         }
         out.println("bye");
         out.flush();
     }
 
-    private void explain(String sql) {
-        try {
-            List<ExplainRes> plan = SQLService.getExplainRes(conn, sql);
-            out.print(TableFormatter.formatPlan(plan));
-            out.println();
-            List<Finding> findings = PlanAnalyzer.analyze(plan);
-            out.print(FindingsFormatter.format(findings, style));
-            if (aiEnabled) {
-                out.flush();
-                askLlm(sql, plan, findings);
-            }
-        } catch (InvalidQueryException e) {
-            out.println(style.error("rejected: ") + e.getMessage());
-        } catch (SQLException e) {
-            // Show the database's message (useful for typos) but never a stack trace.
-            out.println(style.error("error: ") + e.getMessage());
-        }
-        out.flush();
-    }
-
-    private void askLlm(String sql, List<ExplainRes> plan, List<Finding> findings) throws SQLException {
-        out.println();
-        out.println(style.dim("asking " + llm.model() + "..."));
-        out.flush();
-        List<TableInfo> tables = SchemaService.describePlanTables(conn, sql, plan);
-        try {
-            String advice = llm.suggest(PromptBuilder.build(sql, plan, tables, findings));
-            out.println(style.bold("AI suggestions") + style.dim(" (verify before applying)"));
-            out.println(advice);
-        } catch (LLMException e) {
-            out.println(style.error("AI suggestions unavailable: ") + e.getMessage());
-        }
-    }
-
     private void metaCommand(String cmd) {
         String[] parts = cmd.split("\\s+", 2);
         try {
-            switch (parts[0]) {
+            switch (parts[0].toLowerCase(Locale.ROOT)) {
                 case "\\tables", "\\t" -> out.print(TableFormatter.formatTableList(SchemaService.listTables(conn)));
                 case "\\d", "\\describe" -> {
                     if (parts.length < 2) {
@@ -132,6 +92,13 @@ public class Repl {
                         SchemaService.describe(conn, parts[1].replace("`", "")).ifPresentOrElse(
                             t -> out.print(TableFormatter.formatTable(t)),
                             () -> out.println("no such table in the current database"));
+                    }
+                }
+                case "\\tree" -> {
+                    if (parts.length < 2) {
+                        out.println("usage: \\tree <SELECT query>");
+                    } else {
+                        runner.explainTree(parts[1]);
                     }
                 }
                 case "\\ai" -> {
@@ -157,9 +124,10 @@ public class Repl {
 
     private void printHelp() {
         out.println("""
-            Type a SELECT query ending with ';' to see its execution plan.
-              \\tables, \\t      list tables in the current database
+            Type a SELECT query ending with ';' to see its execution plan and findings.
+              \\tables, \\t       list tables in the current database
               \\d <table>        show columns and indexes of a table
+              \\tree <query>     show the plan as a tree with costs (EXPLAIN FORMAT=TREE)
               \\ai on|off        toggle AI suggestions (needs GEMINI_API_KEY)
               help, \\h, \\?     show this help
               exit, quit, \\q   leave sqlens (Ctrl-D also works)
