@@ -5,8 +5,8 @@ import java.util.Scanner;
 import java.util.List;
 
 import com.sqlens.database.DBConnection;
-import com.sqlens.service.ExplainService;
 import com.sqlens.models.ExplainRes;
+import com.sqlens.services.SQLService;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -41,8 +41,7 @@ public class App implements Runnable {
                     break;
                 } //TODO: add help logic later
 
-                List<ExplainRes> list_res = ExplainService.getExplainRes(conn, input);
-                System.out.print(list_res.getFirst());
+                List<ExplainRes> list_res = SQLService.getExplainRes(conn, input);
 
                 //TODO
                 //-get info about the tables

@@ -42,3 +42,4 @@ public class ExplainRes {
     public double getFiltered() { return filtered;}
     public String getExtra() { return extra;}
 }
+//TODO: add other models for the results we will query the db for

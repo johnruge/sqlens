@@ -1,4 +1,4 @@
-package com.sqlens.service;
+package com.sqlens.services;
 
 import com.sqlens.models.ExplainRes;
 
@@ -9,7 +9,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExplainService {
+public class SQLService {
     public static List<ExplainRes> getExplainRes(Connection conn, String query)
     throws SQLException {
         List<ExplainRes> res = new ArrayList<ExplainRes>();
@@ -40,4 +40,5 @@ public class ExplainService {
         }
         return res;
     }
+    // TODO add other services like tables info and so on
 }
