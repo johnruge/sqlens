@@ -2,21 +2,25 @@ MVN = mvn
 JAR = target/sqlens-1.0-SNAPSHOT-jar-with-dependencies.jar
 MAIN_CLASS = com.sqlens.App
 
+# .env is optional (CI has none); values are exported to sqlens and docker compose.
 -include .env
 export
 
-.PHONY: build test clean run install db-up db-down db-logs db-cli
+.PHONY: build test verify package clean run install db-up db-down db-logs db-cli
 
 build:
-	$(MVN) compile
+	$(MVN) -q compile
 
+# unit tests only
 test:
 	$(MVN) test
 
-package: $(JAR)
+# unit + integration tests (integration tests need Docker)
+verify:
+	$(MVN) verify
 
-$(JAR):
-	$(MVN) package
+package:
+	$(MVN) -q package -DskipTests
 
 clean:
 	$(MVN) clean
@@ -24,7 +28,8 @@ clean:
 install:
 	$(MVN) install
 
-run: $(JAR)
+# rebuilds the jar, then starts sqlens; pass options with ARGS="..."
+run: package
 	java -jar $(JAR) $(ARGS)
 
 db-up:
