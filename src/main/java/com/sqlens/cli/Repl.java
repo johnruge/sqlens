@@ -1,5 +1,6 @@
 package com.sqlens.cli;
 
+import com.sqlens.analysis.PlanAnalyzer;
 import com.sqlens.models.ExplainRes;
 import com.sqlens.services.InvalidQueryException;
 import com.sqlens.services.SQLService;
@@ -19,11 +20,13 @@ public class Repl {
     private final Connection conn;
     private final LineReader reader;
     private final PrintWriter out;
+    private final Style style;
 
-    public Repl(Connection conn, LineReader reader, PrintWriter out) {
+    public Repl(Connection conn, LineReader reader, PrintWriter out, Style style) {
         this.conn = conn;
         this.reader = reader;
         this.out = out;
+        this.style = style;
     }
 
     public void run() {
@@ -70,11 +73,13 @@ public class Repl {
         try {
             List<ExplainRes> plan = SQLService.getExplainRes(conn, sql);
             out.print(TableFormatter.formatPlan(plan));
+            out.println();
+            out.print(FindingsFormatter.format(PlanAnalyzer.analyze(plan), style));
         } catch (InvalidQueryException e) {
-            out.println("rejected: " + e.getMessage());
+            out.println(style.error("rejected: ") + e.getMessage());
         } catch (SQLException e) {
             // Show the database's message (useful for typos) but never a stack trace.
-            out.println("error: " + e.getMessage());
+            out.println(style.error("error: ") + e.getMessage());
         }
         out.flush();
     }

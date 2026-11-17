@@ -1,6 +1,7 @@
 package com.sqlens;
 
 import com.sqlens.cli.Repl;
+import com.sqlens.cli.Style;
 import com.sqlens.database.ConnectionConfig;
 import com.sqlens.database.DBConnection;
 
@@ -44,6 +45,9 @@ public class App implements Callable<Integer> {
         description = "database user (env SQLENS_USER; prompted if missing)")
     private String user;
 
+    @Option(names = "--no-color", description = "disable coloured output")
+    private boolean noColor;
+
     @Override
     public Integer call() throws IOException {
         ConnectionConfig config;
@@ -72,7 +76,10 @@ public class App implements Callable<Integer> {
 
             try (Connection conn = DBConnection.getConnection(config, user, password)) {
                 password = null; // drop our reference as soon as we are connected
-                new Repl(conn, reader, out).run();
+                boolean color = !noColor && System.getenv("NO_COLOR") == null
+                    && !Terminal.TYPE_DUMB.equals(terminal.getType())
+                    && !Terminal.TYPE_DUMB_COLOR.equals(terminal.getType());
+                new Repl(conn, reader, out, new Style(color)).run();
             } catch (SQLException e) {
                 out.println("could not connect to " + config.host() + ":" + config.port()
                     + "/" + config.database() + ": " + e.getMessage());
